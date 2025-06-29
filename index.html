@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Обрисовать поле</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <style>
+    html, body { margin:0; padding:0; height:100%; }
+    #map { height: calc(100vh - 50px); }
+    #submit { width:100%; height:50px; font-size:18px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <button id="submit">Завершить и отправить</button>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    let drawnPolygon = null;
+    const map = L.map('map').setView([55.75,37.61], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00aaff' } },
+        polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+      },
+      edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+
+    map.on(L.Draw.Event.CREATED, e => {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(e.layer);
+      drawnPolygon = e.layer;
+    });
+
+    document.getElementById('submit').addEventListener('click', () => {
+      if (!drawnPolygon) return alert('Сначала нарисуйте поле!');
+      const geojsonString = JSON.stringify(drawnPolygon.toGeoJSON());
+      Telegram.WebApp.sendData(geojsonString);
+      Telegram.WebApp.close();
+    });
+  </script>
+</body>
+</html>
