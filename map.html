@@ -63,6 +63,7 @@
     <button class="close-btn" onclick="closeWebApp()">✕ Закрыть</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/shramov/leaflet-plugins@master/layer/tile/Yandex.js"></script>
     <script>
         // Инициализация Telegram WebApp
         let tg = window.Telegram.WebApp;
@@ -81,10 +82,9 @@
                 // Инициализируем карту
                 const map = L.map('map').setView([56.058673, 43.825606], 15);
                 
-                // Добавляем слой OpenStreetMap
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
+                // Яндекс гибрид
+                var yandexLayer = new L.Yandex('hybrid');
+                map.addLayer(yandexLayer);
 
                 // Добавляем GeoJSON слой
                 const geojsonLayer = L.geoJSON(geojson, {
