@@ -1,52 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <title>���������� ����</title>
+  <meta charset="UTF-8">
+  <title>Обрисовка поля — Яндекс Карта</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=0e0eb37c-e2f1-4318-ac80-0bb98822bc8f" type="text/javascript"></script>
   <style>
-    html, body { margin:0; padding:0; height:100%; }
-    #map { height: calc(100vh - 50px); }
-    #submit { width:100%; height:50px; font-size:18px; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #map { width: 100%; height: 100%; }
+    #done-btn {
+      position: absolute;
+      top: 10px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px;
+      background: white; border: 1px solid #ccc;
+      font-size: 16px; z-index: 1000; cursor: pointer;
+    }
   </style>
 </head>
 <body>
+  <div id="done-btn">✅ Завершить</div>
   <div id="map"></div>
-  <button id="submit">��������� � ���������</button>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    let drawnPolygon = null;
-    const map = L.map('map').setView([55.75,37.61], 10);
+    ymaps.ready(init);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    let myPolygon;
 
-    const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({
-      draw: {
-        polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00aaff' } },
-        polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
-      },
-      edit: { featureGroup: drawnItems }
-    });
-    map.addControl(drawControl);
+    function init() {
+      const map = new ymaps.Map("map", {
+        center: [56.85, 45.05], // Пример: Чувашия
+        zoom: 11,
+        type: 'yandex#satellite',
+        controls: ['zoomControl']
+      });
 
-    map.on(L.Draw.Event.CREATED, e => {
-      drawnItems.clearLayers();
-      drawnItems.addLayer(e.layer);
-      drawnPolygon = e.layer;
-    });
+      map.behaviors.enable('default');
 
-    document.getElementById('submit').addEventListener('click', () => {
-      if (!drawnPolygon) return alert('������� ��������� ����!');
-      const geojsonString = JSON.stringify(drawnPolygon.toGeoJSON());
-      Telegram.WebApp.sendData(geojsonString);
-      Telegram.WebApp.close();
-    });
+      // Создание пустого полигона
+      myPolygon = new ymaps.Polygon([], {}, {
+        editorDrawingCursor: "crosshair",
+        fillColor: '#00FF0088',
+        strokeColor: "#0000FF",
+        strokeWidth: 3,
+        opacity: 0.5
+      });
+
+      map.geoObjects.add(myPolygon);
+
+      myPolygon.editor.startDrawing();
+
+      // Кнопка завершения
+      document.getElementById('done-btn').onclick = function () {
+        if (!myPolygon.geometry.getCoordinates()[0].length) {
+          alert("Сначала обрисуйте поле!");
+          return;
+        }
+
+        // Преобразование координат в GeoJSON
+        const geojson = {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [myPolygon.geometry.getCoordinates()[0]]
+          },
+          properties: {}
+        };
+
+        const jsonStr = JSON.stringify(geojson);
+        if (window.Telegram.WebApp) {
+          Telegram.WebApp.sendData(jsonStr);
+          Telegram.WebApp.close();
+        } else {
+          alert("GeoJSON:\n" + jsonStr);
+        }
+      };
+    }
   </script>
 </body>
 </html>
