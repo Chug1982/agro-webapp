@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <title>Обрисовка поля — Яндекс.Карта</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=0e0eb37c-e2f1-4318-ac80-0bb98822bc8f" type="text/javascript"></script>
+  <!-- ВСТАВЬ СЮДА СВОЙ КЛЮЧ -->
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=ВАШ_YANDEX_API_KEY" type="text/javascript"></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; }
     #map { width: 100%; height: 100%; }
@@ -28,18 +29,22 @@
 
   <script>
     ymaps.ready(init);
-
     let myPolygon;
 
     function init() {
       const map = new ymaps.Map("map", {
-        center: [55.7558, 37.6173],
+        center: [55.7558, 37.6173], // Центр Москва
         zoom: 11,
         type: 'yandex#hybrid',
         controls: ['zoomControl']
       });
 
       map.behaviors.enable('default');
+
+      // Говорим Telegram, что WebApp готов
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+      }
 
       myPolygon = new ymaps.Polygon([], {}, {
         editorDrawingCursor: "crosshair",
@@ -53,7 +58,8 @@
       myPolygon.editor.startDrawing();
 
       document.getElementById('done-btn').onclick = function () {
-        if (!myPolygon.geometry.getCoordinates()[0].length) {
+        const coords = myPolygon.geometry.getCoordinates()[0];
+        if (!coords.length) {
           alert("Сначала обрисуйте поле!");
           return;
         }
@@ -62,18 +68,19 @@
           type: "Feature",
           geometry: {
             type: "Polygon",
-            coordinates: [myPolygon.geometry.getCoordinates()[0]]
+            coordinates: [coords]
           },
           properties: {}
         };
 
         const jsonStr = JSON.stringify(geojson);
         console.log("📤 Отправка GeoJSON:", jsonStr);
-        if (window.Telegram.WebApp) {
+
+        if (window.Telegram && Telegram.WebApp) {
           Telegram.WebApp.sendData(jsonStr);
           Telegram.WebApp.close();
         } else {
-          alert("GeoJSON:\n" + jsonStr);
+          alert("GeoJSON:\\n" + jsonStr);
         }
       };
     }
