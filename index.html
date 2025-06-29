@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Обрисовка поля — Яндекс.Карта</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- ВСТАВЬ СЮДА СВОЙ КЛЮЧ -->
+  <!-- Вставь свой API-ключ Яндекс.Карт -->
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=ВАШ_YANDEX_API_KEY" type="text/javascript"></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; }
@@ -28,23 +28,28 @@
   <div id="map"></div>
 
   <script>
+    // Проверка Telegram WebApp
+    console.log("Проверка Telegram.WebApp:");
+    if (window.Telegram && Telegram.WebApp) {
+      console.log("✅ Telegram.WebApp доступен");
+      Telegram.WebApp.ready();
+    } else {
+      console.warn("❌ Telegram.WebApp НЕ доступен. Запустите из Telegram через кнопку.");
+    }
+
     ymaps.ready(init);
+
     let myPolygon;
 
     function init() {
       const map = new ymaps.Map("map", {
-        center: [55.7558, 37.6173], // Центр Москва
+        center: [55.7558, 37.6173], // Центр — Москва
         zoom: 11,
         type: 'yandex#hybrid',
         controls: ['zoomControl']
       });
 
       map.behaviors.enable('default');
-
-      // Говорим Telegram, что WebApp готов
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.ready();
-      }
 
       myPolygon = new ymaps.Polygon([], {}, {
         editorDrawingCursor: "crosshair",
@@ -59,6 +64,7 @@
 
       document.getElementById('done-btn').onclick = function () {
         const coords = myPolygon.geometry.getCoordinates()[0];
+
         if (!coords.length) {
           alert("Сначала обрисуйте поле!");
           return;
@@ -74,13 +80,15 @@
         };
 
         const jsonStr = JSON.stringify(geojson);
-        console.log("📤 Отправка GeoJSON:", jsonStr);
+        console.log("📦 Подготовлен GeoJSON:", jsonStr);
 
         if (window.Telegram && Telegram.WebApp) {
+          console.log("📤 Отправка данных в Telegram...");
           Telegram.WebApp.sendData(jsonStr);
           Telegram.WebApp.close();
         } else {
-          alert("GeoJSON:\\n" + jsonStr);
+          console.warn("❌ WebApp не работает, выводим alert:");
+          alert("GeoJSON:\n" + jsonStr);
         }
       };
     }
