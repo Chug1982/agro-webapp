@@ -1,130 +1,153 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Обрисовка поля — Яндекс.Карта</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Вставь свой API-ключ Яндекс.Карт -->
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=0e0eb37c-e2f1-4318-ac80-0bb98822bc8f" type="text/javascript"></script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    html, body { margin: 0; padding: 0; height: 100%; }
-    #map { width: 100vw; height: 100vh; }
-    #done-btn, #reset-btn {
-      position: absolute;
-      top: 10px;
-      padding: 10px 20px;
-      background: white;
-      border: 1px solid #ccc;
-      font-size: 16px;
-      z-index: 1000;
-      cursor: pointer;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    }
-    #done-btn { left: 50%; transform: translateX(-60px); }
-    #reset-btn { left: 50%; transform: translateX(60px); }
-    #hint {
-      position: absolute;
-      top: 60px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #fff;
-      padding: 7px 18px;
-      z-index: 1000;
-      border-radius: 8px;
-      border: 1px solid #eee;
-      font-size: 15px;
-      color: #333;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      user-select: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта поля</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--tg-theme-bg-color, white);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+        }
+        .field-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .field-info {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, white);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-  <div id="done-btn">✅ Завершить</div>
-  <div id="reset-btn">🔄 Сбросить</div>
-  <div id="hint">Кликните по карте, чтобы нарисовать поле. Двойной клик — завершить точку.</div>
-  <div id="map"></div>
+    <div id="map"></div>
+    <div class="info-panel">
+        <div class="field-name" id="fieldName">Название поля</div>
+        <div class="field-info" id="fieldInfo">Загрузка...</div>
+    </div>
+    <button class="close-btn" onclick="closeWebApp()">✕ Закрыть</button>
 
-  <script>
-    // Отладка: проверяем наличие Telegram WebApp API
-    console.log("Telegram =", window.Telegram);
-    console.log("Telegram.WebApp =", window.Telegram?.WebApp);
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/shramov/leaflet-plugins@master/layer/tile/Yandex.js"></script>
+    <script>
+        // Инициализация Telegram WebApp
+        let tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (tg) { tg.ready(); tg.expand(); }
 
-    let myPolygon, map;
+        // Получаем данные из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const geojsonData = urlParams.get('geojson');
+        const fieldName = urlParams.get('name') || 'Поле';
 
-    ymaps.ready(init);
+        if (geojsonData) {
+            try {
+                const geojson = JSON.parse(decodeURIComponent(geojsonData));
+                
+                // Инициализируем карту
+                const map = L.map('map').setView([56.058673, 43.825606], 15);
+                
+                // Добавляем слой Яндекс.Гибрид
+                var yandexLayer = new L.Yandex('hybrid');
+                map.addLayer(yandexLayer);
 
-    function init() {
-      ymaps.geolocation.get().then(function (res) {
-        const userCoords = res.geoObjects.get(0).geometry.getCoordinates();
-        createMap(userCoords);
-      }, function () {
-        createMap([55.7558, 37.6173]);
-      });
-    }
+                // Добавляем GeoJSON слой
+                const geojsonLayer = L.geoJSON(geojson, {
+                    style: {
+                        color: '#ff7800',
+                        weight: 2,
+                        opacity: 1,
+                        fillColor: '#ff7800',
+                        fillOpacity: 0.2
+                    },
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties && feature.properties.field_name) {
+                            layer.bindPopup(feature.properties.field_name);
+                        }
+                    }
+                }).addTo(map);
 
-    function createMap(centerCoords) {
-      map = new ymaps.Map("map", {
-        center: centerCoords,
-        zoom: 13,
-        type: 'yandex#hybrid',
-        controls: ['zoomControl']
-      });
+                // Подстраиваем карту под границы поля
+                if (geojsonLayer.getBounds) {
+                    map.fitBounds(geojsonLayer.getBounds());
+                }
 
-      map.behaviors.enable('default');
+                // Обновляем информацию о поле
+                document.getElementById('fieldName').textContent = fieldName;
+                
+                // Вычисляем площадь поля (приблизительно)
+                if (geojson.features && geojson.features.length > 0) {
+                    const feature = geojson.features[0];
+                    if (feature.geometry && feature.geometry.coordinates) {
+                        const coordinates = feature.geometry.coordinates[0];
+                        const area = calculateArea(coordinates);
+                        document.getElementById('fieldInfo').textContent = 
+                            `Площадь: ${area.toFixed(2)} га`;
+                    }
+                }
 
-      createPolygon();
+            } catch (error) {
+                console.error('Ошибка при загрузке карты:', error);
+                document.getElementById('fieldInfo').textContent = 'Ошибка загрузки карты';
+            }
+        } else {
+            document.getElementById('fieldInfo').textContent = 'Данные поля не найдены';
+        }
 
-      document.getElementById('done-btn').onclick = sendPolygon;
-      document.getElementById('reset-btn').onclick = resetPolygon;
-    }
+        // Функция для приблизительного расчета площади в гектарах
+        function calculateArea(coordinates) {
+            if (coordinates.length < 3) return 0;
+            
+            let area = 0;
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const [lon1, lat1] = coordinates[i];
+                const [lon2, lat2] = coordinates[i + 1];
+                area += (lon2 - lon1) * (lat2 + lat1);
+            }
+            
+            // Приблизительный перевод в гектары (очень грубая оценка)
+            // В реальности нужно использовать более точные формулы
+            return Math.abs(area) * 111 * 111 * 100; // 1 градус ≈ 111 км
+        }
 
-    function createPolygon() {
-      if (myPolygon) {
-        map.geoObjects.remove(myPolygon);
-      }
-      myPolygon = new ymaps.Polygon([], {}, {
-        editorDrawingCursor: "crosshair",
-        fillColor: '#00FF0088',
-        strokeColor: "#0000FF",
-        strokeWidth: 3,
-        opacity: 0.5
-      });
-      map.geoObjects.add(myPolygon);
-      myPolygon.editor.startDrawing();
-    }
-
-    function resetPolygon() {
-      createPolygon();
-    }
-
-    function sendPolygon() {
-      const coords = myPolygon.geometry.getCoordinates()[0];
-      if (!coords || coords.length < 3) {
-        alert("Сначала обрисуйте поле (минимум 3 точки)!");
-        return;
-      }
-      const geojson = {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [coords]
-        },
-        properties: {}
-      };
-      const jsonStr = JSON.stringify(geojson);
-      console.log("Попытка отправки данных в Telegram:", jsonStr);
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.sendData(jsonStr);
-        Telegram.WebApp.close();
-        console.log("Данные отправлены через Telegram.WebApp.sendData");
-      } else {
-        alert("Telegram WebApp API не найден! (Вы не в Telegram?)\nGeoJSON:\n" + jsonStr);
-        console.log("Telegram.WebApp не найден!");
-      }
-    }
-  </script>
+        // Функция закрытия WebApp
+        function closeWebApp() {
+            if (tg) tg.close();
+        }
+    </script>
 </body>
 </html>
