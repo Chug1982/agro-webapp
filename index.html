@@ -29,13 +29,13 @@
 
   <script>
     // Проверка Telegram WebApp
-    console.log("Проверка Telegram.WebApp:");
-    if (window.Telegram && Telegram.WebApp) {
-      console.log("✅ Telegram.WebApp доступен");
-      Telegram.WebApp.ready();
-    } else {
-      console.warn("❌ Telegram.WebApp НЕ доступен. Запустите из Telegram через кнопку.");
-    }
+    console.log("Telegram =", Telegram);
+console.log("Telegram.WebApp =", Telegram?.WebApp);
+if (Telegram?.WebApp?.initData) {
+    console.log("✅ Telegram WebApp активен. initData:", Telegram.WebApp.initData);
+} else {
+    console.warn("❌ Telegram.WebApp НЕ инициализирован. Проверь способ запуска.");
+}
 
     ymaps.ready(init);
 
