@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта поля</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--tg-theme-bg-color, white);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+        }
+        .field-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .field-info {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, white);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <div class="field-name" id="fieldName">Название поля</div>
+        <div class="field-info" id="fieldInfo">Загрузка...</div>
+    </div>
+    <button class="close-btn" onclick="closeWebApp()">✕ Закрыть</button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Инициализация Telegram WebApp
+        let tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Получаем данные из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const geojsonData = urlParams.get('geojson');
+        const fieldName = urlParams.get('name') || 'Поле';
+
+        if (geojsonData) {
+            try {
+                const geojson = JSON.parse(decodeURIComponent(geojsonData));
+                
+                // Инициализируем карту
+                const map = L.map('map').setView([56.058673, 43.825606], 15);
+                
+                // Добавляем слой OpenStreetMap
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Добавляем GeoJSON слой
+                const geojsonLayer = L.geoJSON(geojson, {
+                    style: {
+                        color: '#ff7800',
+                        weight: 2,
+                        opacity: 1,
+                        fillColor: '#ff7800',
+                        fillOpacity: 0.2
+                    },
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties && feature.properties.field_name) {
+                            layer.bindPopup(feature.properties.field_name);
+                        }
+                    }
+                }).addTo(map);
+
+                // Подстраиваем карту под границы поля
+                if (geojsonLayer.getBounds) {
+                    map.fitBounds(geojsonLayer.getBounds());
+                }
+
+                // Обновляем информацию о поле
+                document.getElementById('fieldName').textContent = fieldName;
+                
+                // Вычисляем площадь поля (приблизительно)
+                if (geojson.features && geojson.features.length > 0) {
+                    const feature = geojson.features[0];
+                    if (feature.geometry && feature.geometry.coordinates) {
+                        const coordinates = feature.geometry.coordinates[0];
+                        const area = calculateArea(coordinates);
+                        document.getElementById('fieldInfo').textContent = 
+                            `Площадь: ${area.toFixed(2)} га`;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Ошибка при загрузке карты:', error);
+                document.getElementById('fieldInfo').textContent = 'Ошибка загрузки карты';
+            }
+        } else {
+            document.getElementById('fieldInfo').textContent = 'Данные поля не найдены';
+        }
+
+        // Функция для приблизительного расчета площади в гектарах
+        function calculateArea(coordinates) {
+            if (coordinates.length < 3) return 0;
+            
+            let area = 0;
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const [lon1, lat1] = coordinates[i];
+                const [lon2, lat2] = coordinates[i + 1];
+                area += (lon2 - lon1) * (lat2 + lat1);
+            }
+            
+            // Приблизительный перевод в гектары (очень грубая оценка)
+            // В реальности нужно использовать более точные формулы
+            return Math.abs(area) * 111 * 111 * 100; // 1 градус ≈ 111 км
+        }
+
+        // Функция закрытия WebApp
+        function closeWebApp() {
+            tg.close();
+        }
+    </script>
+</body>
+</html> 
