@@ -6,50 +6,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Вставь свой API-ключ Яндекс.Карт -->
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=0e0eb37c-e2f1-4318-ac80-0bb98822bc8f" type="text/javascript"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; }
-    #map { width: 100%; height: 100%; }
-    #done-btn {
+    #map { width: 100vw; height: 100vh; }
+    #done-btn, #reset-btn {
       position: absolute;
       top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
       padding: 10px 20px;
       background: white;
       border: 1px solid #ccc;
       font-size: 16px;
       z-index: 1000;
       cursor: pointer;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    #done-btn { left: 50%; transform: translateX(-60px); }
+    #reset-btn { left: 50%; transform: translateX(60px); }
+    #hint {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 7px 18px;
+      z-index: 1000;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      font-size: 15px;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      user-select: none;
     }
   </style>
 </head>
 <body>
   <div id="done-btn">✅ Завершить</div>
+  <div id="reset-btn">🔄 Сбросить</div>
+  <div id="hint">Кликните по карте, чтобы нарисовать поле. Двойной клик — завершить точку.</div>
   <div id="map"></div>
 
   <script>
-    console.log("Telegram =", Telegram);
-    console.log("Telegram.WebApp =", Telegram?.WebApp);
-    if (Telegram?.WebApp?.initData) {
-        console.log("✅ Telegram WebApp активен. initData:", Telegram.WebApp.initData);
-    } else {
-        console.warn("❌ Telegram.WebApp НЕ инициализирован. Проверь способ запуска.");
-    }
+    let myPolygon, map;
 
     ymaps.ready(init);
 
-    let myPolygon;
-
     function init() {
-      const map = new ymaps.Map("map", {
-        center: [55.7558, 37.6173],
-        zoom: 11,
+      // Попробуем получить геолокацию пользователя
+      ymaps.geolocation.get().then(function (res) {
+        const userCoords = res.geoObjects.get(0).geometry.getCoordinates();
+        createMap(userCoords);
+      }, function () {
+        // Если не удалось — центр Москвы
+        createMap([55.7558, 37.6173]);
+      });
+    }
+
+    function createMap(centerCoords) {
+      map = new ymaps.Map("map", {
+        center: centerCoords,
+        zoom: 13,
         type: 'yandex#hybrid',
         controls: ['zoomControl']
       });
 
       map.behaviors.enable('default');
 
+      createPolygon();
+
+      document.getElementById('done-btn').onclick = sendPolygon;
+      document.getElementById('reset-btn').onclick = resetPolygon;
+    }
+
+    function createPolygon() {
+      if (myPolygon) {
+        map.geoObjects.remove(myPolygon);
+      }
       myPolygon = new ymaps.Polygon([], {}, {
         editorDrawingCursor: "crosshair",
         fillColor: '#00FF0088',
@@ -57,39 +90,35 @@
         strokeWidth: 3,
         opacity: 0.5
       });
-
       map.geoObjects.add(myPolygon);
       myPolygon.editor.startDrawing();
+    }
 
-      document.getElementById('done-btn').onclick = function () {
-        const coords = myPolygon.geometry.getCoordinates()[0];
+    function resetPolygon() {
+      createPolygon();
+    }
 
-        if (!coords.length) {
-          alert("Сначала обрисуйте поле!");
-          return;
-        }
-
-        const geojson = {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [coords]
-          },
-          properties: {}
-        };
-
-        const jsonStr = JSON.stringify(geojson);
-        console.log("📦 Подготовлен GeoJSON:", jsonStr);
-
-        if (window.Telegram && Telegram.WebApp) {
-          console.log("📤 Отправка данных в Telegram...");
-          Telegram.WebApp.sendData(jsonStr);
-          Telegram.WebApp.close();
-        } else {
-          console.warn("❌ WebApp не работает, выводим alert:");
-          alert("GeoJSON:\n" + jsonStr);
-        }
+    function sendPolygon() {
+      const coords = myPolygon.geometry.getCoordinates()[0];
+      if (!coords || coords.length < 3) {
+        alert("Сначала обрисуйте поле (минимум 3 точки)!");
+        return;
+      }
+      const geojson = {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [coords]
+        },
+        properties: {}
       };
+      const jsonStr = JSON.stringify(geojson);
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.sendData(jsonStr);
+        Telegram.WebApp.close();
+      } else {
+        alert("GeoJSON:\n" + jsonStr);
+      }
     }
   </script>
 </body>
